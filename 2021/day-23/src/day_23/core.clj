@@ -4,6 +4,8 @@
 ; #############
 ; #...........#
 ; ###B#D#C#A###
+;   #D#C#B#A#
+;   #D#B#A#C#
 ;   #C#D#B#A#
 ;   #########
 
@@ -11,6 +13,8 @@
 ; #123456789AB#
 ; ###.#.#.#.### 1
 ;   #.#.#.#.#   2
+;   #.#.#.#.#   3
+;   #.#.#.#.#   4
 ;   #########
 
 (def edges
@@ -25,12 +29,20 @@
     [:h8 :h9]
     [:h9 :hA]
     [:hA :hB]
+    [:a4 :a3]
+    [:a3 :a2]
     [:a2 :a1]
     [:a1 :h3]
+    [:b4 :b3]
+    [:b3 :b2]
     [:b2 :b1]
     [:b1 :h5]
+    [:c4 :c3]
+    [:c3 :c2]
     [:c2 :c1]
     [:c1 :h7]
+    [:d4 :d3]
+    [:d3 :d2]
     [:d2 :d1]
     [:d1 :h9]
     }
@@ -66,12 +78,20 @@
   {:energy 0
    :positions {:c_a1 {:position :d1 :state :start}
                :c_a2 {:position :d2 :state :start}
+               :c_a3 {:position :c3 :state :start}
+               :c_a4 {:position :d4 :state :start}
                :c_b1 {:position :a1 :state :start}
                :c_b2 {:position :c2 :state :start}
+               :c_b3 {:position :b3 :state :start}
+               :c_b4 {:position :c4 :state :start}
                :c_c1 {:position :c1 :state :start}
-               :c_c2 {:position :a2 :state :start}
+               :c_c2 {:position :b2 :state :start}
+               :c_c3 {:position :d3 :state :start}
+               :c_c4 {:position :a4 :state :start}
                :c_d1 {:position :b1 :state :start}
-               :c_d2 {:position :b2 :state :start}}})
+               :c_d2 {:position :a2 :state :start}
+               :c_d3 {:position :a3 :state :start}
+               :c_d4 {:position :b4 :state :start}}})
 
 (defn is-node-open? [board node]
   ((complement some)
@@ -103,14 +123,10 @@
 
 (defn energy [creature]
   (case creature
-    :c_a1 1
-    :c_a2 1
-    :c_b1 10
-    :c_b2 10
-    :c_c1 100
-    :c_c2 100
-    :c_d1 1000
-    :c_d2 1000))
+    (:c_a1 :c_a2 :c_a3 :c_a4) 1
+    (:c_b1 :c_b2 :c_b3 :c_b4) 10
+    (:c_c1 :c_c2 :c_c3 :c_c4) 100
+    (:c_d1 :c_d2 :c_d3 :c_d4) 1000))
 
 
 (defn make-move "Create a new board with the creature moved to the destination, if it's possible"
@@ -156,12 +172,12 @@
 
 (defn valid-midway-destinations [board creature]
   "There's only ever one valid destination from midway: The home room furthest in."
-  (letfn [(has-home-creature? [node] (= :end (get-creature-state board (whats-at board node))))]
+  (letfn [(undone? [node] (not (= :end (get-creature-state board (whats-at board node)))))]
     #{(case creature
-        (:c_a1, :c_a2) (if (has-home-creature? :a2) :a1 :a2)
-        (:c_b1, :c_b2) (if (has-home-creature? :b2) :b1 :b2)
-        (:c_c1, :c_c2) (if (has-home-creature? :c2) :c1 :c2)
-        (:c_d1, :c_d2) (if (has-home-creature? :d2) :d1 :d2))}))
+        (:c_a1, :c_a2, :c_a3, :c_a4) (if (undone? :a4) :a4 (if (undone? :a3) :a3 (if (undone? :a2) :a2 :a1)))
+        (:c_b1, :c_b2, :c_b3, :c_b4) (if (undone? :b4) :b4 (if (undone? :b3) :b3 (if (undone? :b2) :b2 :b1)))
+        (:c_c1, :c_c2, :c_c3, :c_c4) (if (undone? :c4) :c4 (if (undone? :c3) :c3 (if (undone? :c2) :c2 :c1)))
+        (:c_d1, :c_d2, :c_d3, :c_d4) (if (undone? :d4) :d4 (if (undone? :d3) :d3 (if (undone? :d2) :d2 :d1))))}))
 
 (valid-midway-destinations initial-board :c_a1)
 
@@ -259,10 +275,10 @@
 (defn print-creature [creature]
   (case creature
     nil "·"
-    (:c_a1 :c_a2) "A"
-    (:c_b1 :c_b2) "B"
-    (:c_c1 :c_c2) "C"
-    (:c_d1 :c_d2) "D"
+    (:c_a1 :c_a2 :c_a3 :c_a4) "A"
+    (:c_b1 :c_b2 :c_b3 :c_b4) "B"
+    (:c_c1 :c_c2 :c_c3 :c_c4) "C"
+    (:c_d1 :c_d2 :c_d3 :c_d4) "D"
     ))
 
 
@@ -270,8 +286,13 @@
 
 (defn print-board [board]
   (apply
-   (partial printf " \n%s%s%s%s%s%s%s%s%s%s%s\n  %s %s %s %s\n  %s %s %s %s\n")
-   (map #(print-creature (whats-at board %)) [:h1 :h2 :h3 :h4 :h5 :h6 :h7 :h8 :h9 :hA :hB :a1 :b1 :c1 :d1 :a2 :b2 :c2 :d2])))
+   (partial printf " \n%s%s%s%s%s%s%s%s%s%s%s\n  %s %s %s %s\n  %s %s %s %s\n  %s %s %s %s\n  %s %s %s %s\n")
+   (map #(print-creature (whats-at board %)) [:h1 :h2 :h3 :h4 :h5 :h6 :h7 :h8 :h9 :hA :hB
+                                              :a1 :b1 :c1 :d1
+                                              :a2 :b2 :c2 :d2
+                                              :a3 :b3 :c3 :d3
+                                              :a4 :b4 :c4 :d4
+                                              ])))
 
 (print-board initial-board)
 
