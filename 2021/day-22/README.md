@@ -1,4 +1,4 @@
-# day-24
+# day-21
 
 A Clojure library designed to ... well, that part is up to you.
 
