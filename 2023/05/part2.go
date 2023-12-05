@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -38,7 +37,7 @@ func main() {
 	}
 	fmt.Println(seedRanges)
 
-	maps := map[int]map[int]mappingRange{}
+	maps := make([]map[int]mappingRange, 7)
 	curMap := 0
 
 	scanner.Scan()
@@ -76,141 +75,80 @@ func main() {
 		return res
 	}
 
-	consolidateRanges := func(rs []seedRange) []seedRange {
-		sort.Slice(rs, func(i, j int) bool {
-			return rs[i].Start < rs[j].Start
-		})
-		nextGen := []seedRange{}
-		i := 0
-		size := 0
-		for i < len(rs) {
-			start := rs[i].Start
-			end := rs[i].Start + rs[i].Size
-			// look for any items we can fold in
-			j := i + 1
-			for ; j < len(rs) && rs[j].Start <= end; j++ {
-				jEnd := rs[j].Start + rs[j].Size
-				if jEnd > end {
-					end = jEnd
-				}
-			}
-			nextGen = append(nextGen, seedRange{start, end - start})
-			i = j
-			size += end - start
-		}
-		for i := 0; i < len(nextGen)-1; i++ {
-			if !(nextGen[i].Start+nextGen[i].Size < nextGen[i+1].Start) {
-				log.Fatalf("Expected disjoint ranges, but %d ends at %d, and %d starts at %d",
-					i,
-					nextGen[i].Start+nextGen[i].Size,
-					i+1,
-					nextGen[i+1].Start,
-				)
-			}
-		}
-		fmt.Printf("Consolidated to size %d\n", size)
-		return nextGen
-	}
-
 	assertEquals := func(i, j int) {
 		if i != j {
 			log.Fatalf("Expected %d == %d", i, j)
 		}
 	}
 
-	for mi, mappingLayer := range maps {
-		seedRanges = consolidateRanges(seedRanges)
-		fmt.Printf("=== Layer %d: %v\n", mi, len(seedRanges))
-		nextGenSeedRanges := []seedRange{}
-		for _, r := range seedRanges {
-			chunks := []seedRange{r} // seeds that need to find a home
-			// Each bit of this range needs to be mapped into a new range, and hopefully they don't overlap
-			// Find map ranges that intersect, and map those
-			// Assume everything only gets mapped once
-			for start, mapping := range mappingLayer {
-				chunksRemaining := []seedRange{} // chunks that haven't been mapped should go here
-				for _, chunk := range chunks {
-					// Four cases to consider
-					clo := chunk.Start
-					chi := chunk.Start + chunk.Size
-					mlo := start
-					mhi := start + mapping.Size
-					if mhi <= clo {
-						// no overlap; leave this chunk intact for the next mapping
-						chunksRemaining = append(chunksRemaining, chunk)
-						continue
-					}
-					if mlo >= chi {
-						// no overlap; leave this chunk intact for the next mapping
-						chunksRemaining = append(chunksRemaining, chunk)
-						continue
-					}
-					if mlo <= clo && mhi >= chi {
-						// mapping overlaps chunk entirely
-						// map the whole chunk: [clo, chi]
-						nextGenSeedRanges = append(nextGenSeedRanges, seedRange{
-							Start: applyMap(clo, mapping),
-							Size:  chi - clo,
-						})
-						continue
-					}
-					if mlo > clo && mhi < chi {
-						// mapping splits chunk
-						// map the map range in its entirety [mlo, mhi]
-						nextGenSeedRanges = append(nextGenSeedRanges, seedRange{
-							Start: applyMap(mlo, mapping),
-							Size:  mhi - mlo,
-						})
+	applyMapToChunk := func(mapping mappingRange, chunk seedRange) (mapped []seedRange, remaining []seedRange) {
+		// Four cases to consider
+		clo := chunk.Start
+		chi := chunk.Start + chunk.Size
+		mlo := mapping.Source
+		mhi := mapping.Source + mapping.Size
 
-						assertEquals(applyMap(mlo, mapping)+mhi-mlo-1, applyMap(mhi-1, mapping))
-						// split chunk into [clo, mlo] and [mhi, chi]
-						chunksRemaining = append(chunksRemaining,
-							seedRange{Start: clo, Size: mlo - clo},
-							seedRange{Start: mhi, Size: chi - mhi},
-						)
-						assertEquals(chunk.Size, mhi-mlo+mlo-clo+chi-mhi)
-						continue
-					}
-					if mhi >= chi {
-						// mapping intersects right side of chunk
-						// map [mlo, chi]
-						nextGenSeedRanges = append(nextGenSeedRanges, seedRange{
-							Start: applyMap(mlo, mapping),
-							Size:  chi - mlo,
-						})
-						assertEquals(applyMap(mlo, mapping)+chi-mlo-1, applyMap(chi-1, mapping))
-						// leave [clo, mlo]
-						chunksRemaining = append(chunksRemaining,
-							seedRange{Start: clo, Size: mlo - clo},
-						)
-						assertEquals(chunk.Size, chi-mlo+mlo-clo)
-						continue
-					}
-					if mlo <= clo {
-						// mapping intersects left side of chunk
-						// map [clo, mhi]
-						nextGenSeedRanges = append(nextGenSeedRanges, seedRange{
-							Start: applyMap(clo, mapping),
-							Size:  mhi - clo,
-						})
-						assertEquals(applyMap(clo, mapping)+mhi-clo-1, applyMap(mhi-1, mapping))
-						// leave [mhi, chi]
-						chunksRemaining = append(chunksRemaining,
-							seedRange{Start: mhi, Size: chi - mhi},
-						)
-						assertEquals(chunk.Size, mhi-clo+chi-mhi)
-						continue
-					}
-					log.Fatalf("Couldn't figure out what to do with c[%d,%d] and m[%d,%d]", clo, chi, mlo, mhi)
-				}
-				chunks = chunksRemaining
-			}
-			// Unmapped pieces get mapped as-is
-			nextGenSeedRanges = append(nextGenSeedRanges, chunks...)
-			// nextGenSeedRanges = consolidateRanges(nextGenSeedRanges)
+		if mhi <= clo {
+			// no overlap; leave this chunk intact for the next mapping
+			remaining = []seedRange{chunk}
+			return
 		}
-		// nextGenSeedRanges = consolidateRanges(nextGenSeedRanges)
-		seedRanges = nextGenSeedRanges
+		if mlo >= chi {
+			// no overlap; leave this chunk intact for the next mapping
+			remaining = []seedRange{chunk}
+			return
+		}
+		if mlo <= clo && mhi >= chi {
+			// mapping overlaps chunk entirely
+			// map the whole chunk: [clo, chi]
+			mapped = []seedRange{{Start: applyMap(clo, mapping), Size: chi - clo}}
+			return
+		}
+		if mlo > clo && mhi < chi {
+			// mapping splits chunk
+			// map the map range in its entirety [mlo, mhi]
+			mapped = []seedRange{{Start: applyMap(mlo, mapping), Size: mhi - mlo}}
+
+			assertEquals(applyMap(mlo, mapping)+mhi-mlo-1, applyMap(mhi-1, mapping))
+			// split chunk into [clo, mlo] and [mhi, chi]
+			remaining = []seedRange{
+				{Start: clo, Size: mlo - clo},
+				{Start: mhi, Size: chi - mhi},
+			}
+			return
+		}
+		if mhi >= chi {
+			// mapping intersects right side of chunk
+			mapped = []seedRange{{Start: applyMap(mlo, mapping), Size: chi - mlo}}
+			remaining = []seedRange{{Start: clo, Size: mlo - clo}}
+			return
+		}
+		if mlo <= clo {
+			// mapping intersects left side of chunk
+			mapped = []seedRange{{Start: applyMap(clo, mapping), Size: mhi - clo}}
+			remaining = []seedRange{{Start: mhi, Size: chi - mhi}}
+			return
+		}
+		log.Fatalf("Couldn't figure out what to do with c[%d,%d] and m[%d,%d]", clo, chi, mlo, mhi)
+		return
+	}
+
+	// Go through each layer, and map all the chunks (or don't map them)
+	for mi, mappingLayer := range maps {
+		// Map all chunks in seedRanges in this layer, place them in nextGenSeedRanges
+		fmt.Printf("=== Layer %d: %v\n", mi, len(seedRanges))
+		mappedChunks := []seedRange{}
+		for _, mapping := range mappingLayer {
+			unmappedChunks := []seedRange{}
+			for _, chunk := range seedRanges {
+				mapped, remaining := applyMapToChunk(mapping, chunk)
+				mappedChunks = append(mappedChunks, mapped...)
+				unmappedChunks = append(unmappedChunks, remaining...)
+			}
+			seedRanges = unmappedChunks
+		}
+		// Unmapped pieces get mapped as-is
+		seedRanges = append(mappedChunks, seedRanges...)
 	}
 
 	minSeed := 100000000000
