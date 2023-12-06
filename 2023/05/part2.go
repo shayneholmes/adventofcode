@@ -35,7 +35,6 @@ func main() {
 		seedRanges = append(seedRanges, seedRange{Start: atoi(seeds[0]), Size: atoi(seeds[1])})
 		seeds = seeds[2:]
 	}
-	fmt.Println(seedRanges)
 
 	maps := make([]map[int]mappingRange, 7)
 	curMap := 0
@@ -81,7 +80,7 @@ func main() {
 		}
 	}
 
-	applyMapToChunk := func(mapping mappingRange, chunk seedRange) (mapped []seedRange, remaining []seedRange) {
+	applyMapToRange := func(mapping mappingRange, chunk seedRange) (mapped []seedRange, remaining []seedRange) {
 		// Four cases to consider
 		clo := chunk.Start
 		chi := chunk.Start + chunk.Size
@@ -136,19 +135,19 @@ func main() {
 	// Go through each layer, and map all the chunks (or don't map them)
 	for mi, mappingLayer := range maps {
 		// Map all chunks in seedRanges in this layer, place them in nextGenSeedRanges
-		fmt.Printf("=== Layer %d: %v\n", mi, len(seedRanges))
-		mappedChunks := []seedRange{}
+		fmt.Printf("=== Layer %d: %v chunks\n", mi, len(seedRanges))
+		mappedRanges := []seedRange{}
 		for _, mapping := range mappingLayer {
-			unmappedChunks := []seedRange{}
+			unmappedRanges := []seedRange{}
 			for _, chunk := range seedRanges {
-				mapped, remaining := applyMapToChunk(mapping, chunk)
-				mappedChunks = append(mappedChunks, mapped...)
-				unmappedChunks = append(unmappedChunks, remaining...)
+				mapped, remaining := applyMapToRange(mapping, chunk)
+				mappedRanges = append(mappedRanges, mapped...)
+				unmappedRanges = append(unmappedRanges, remaining...)
 			}
-			seedRanges = unmappedChunks
+			seedRanges = unmappedRanges
 		}
 		// Unmapped pieces get mapped as-is
-		seedRanges = append(mappedChunks, seedRanges...)
+		seedRanges = append(mappedRanges, seedRanges...)
 	}
 
 	minSeed := 100000000000
