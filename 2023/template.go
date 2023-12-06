@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strconv"
 )
 
@@ -24,6 +25,32 @@ func main() {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// return all ints in a string of text
+func ints(s string) []int {
+	re := regexp.MustCompile(`-?\b\d+\b`)
+	intss := re.FindAllString(s, -1)
+	ints := make([]int, len(intss))
+	for i := 0; i < len(ints); i++ {
+		ints[i] = atoi(intss[i])
+	}
+	return ints
+}
+
+// return all floats in a string of text
+func floats(s string) []float64 {
+	re := regexp.MustCompile(`-?\d+(\.\d+)?`)
+	intss := re.FindAllString(s, -1)
+	floats := make([]float64, len(intss))
+	for i := 0; i < len(floats); i++ {
+		f, err := strconv.ParseFloat(intss[i], 64)
+		if err != nil {
+			log.Fatalf("not an float: %q", s)
+		}
+		floats[i] = f
+	}
+	return floats
 }
 
 // cheap atoi

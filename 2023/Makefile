@@ -2,8 +2,10 @@
 date=$(shell date -v +4H +"%d")
 days := $(shell seq -f '%02g' 01 25)
 
-# Default target
-$(date)/part2.go:
+.DEFAULT_GOAL := today
+
+.PHONY: today
+today: $(date)/part2.go $(date)/input.txt
 
 %/part2.go: %/part1.go | %
 	cp $< $@
@@ -13,6 +15,9 @@ $(patsubst %,%/part1.go,$(days)):
 
 %/part1.go: | %
 	cp template.go $@
+
+%/input.txt: | %
+	aocd $| > $@
 
 $(days):
 	mkdir -p $@
