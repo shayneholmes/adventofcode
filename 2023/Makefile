@@ -17,7 +17,7 @@ $(patsubst %,%/part1.go,$(days)):
 	cp template.go $@
 
 %/input.txt: | %
-	aocd $| > $@
+	aocd $| > $@.tmp && mv $@.tmp $@
 
 $(days):
 	mkdir -p $@
