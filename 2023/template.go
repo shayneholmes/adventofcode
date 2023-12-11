@@ -27,6 +27,43 @@ func main() {
 	}
 }
 
+// absolute value
+func abs(i int) int {
+	if i >= 0 {
+		return i
+	}
+	return -i
+}
+
+// absolute value
+func fabs(i float64) float64 {
+	if i >= 0 {
+		return i
+	}
+	return -i
+}
+
+// location in a grid
+type loc = struct {
+	r int
+	c int
+}
+
+// manhattan distance
+func dist(p1, p2 loc) int {
+	return abs(p1.r-p2.r) + abs(p1.c-p2.c)
+}
+
+type point = struct {
+	r float64
+	c float64
+}
+
+// manhattan distance
+func pdist(p1, p2 point) float64 {
+	return fabs(p1.r-p2.r) + fabs(p1.c-p2.c)
+}
+
 // return all ints in a string of text
 func ints(s string) []int {
 	re := regexp.MustCompile(`-?\b\d+\b`)
