@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"regexp"
 	"strconv"
@@ -28,40 +29,38 @@ func main() {
 }
 
 // absolute value
-func abs(i int) int {
-	if i >= 0 {
-		return i
-	}
-	return -i
-}
-
-// absolute value
-func fabs(i float64) float64 {
-	if i >= 0 {
-		return i
-	}
-	return -i
+func abs[V Number](i V) V {
+	return max(i, -i)
 }
 
 // location in a grid
-type loc = struct {
-	r int
-	c int
-}
+type loc = []int
+
+type point = []float64
 
 // manhattan distance
-func dist(p1, p2 loc) int {
-	return abs(p1.r-p2.r) + abs(p1.c-p2.c)
+func mdist[S Number](p1, p2 []S) S {
+	if len(p1) != len(p2) {
+		log.Fatalf("mismatched dimensions in %v, %v", p1, p2)
+	}
+	var dist S
+	for i := range p1 {
+		dist += abs(p1[i] - p2[i])
+	}
+	return dist
 }
 
-type point = struct {
-	r float64
-	c float64
-}
-
-// manhattan distance
-func pdist(p1, p2 point) float64 {
-	return fabs(p1.r-p2.r) + fabs(p1.c-p2.c)
+// euclidean distance
+func dist[S Number](p1, p2 []S) float64 {
+	if len(p1) != len(p2) {
+		log.Fatalf("mismatched dimensions in %v, %v", p1, p2)
+	}
+	var squares S
+	for i := range p1 {
+		diff := (p1[i] - p2[i])
+		squares += diff * diff
+	}
+	return math.Sqrt(float64(squares))
 }
 
 // return all ints in a string of text
@@ -99,15 +98,38 @@ func atoi(s string) int {
 	return i
 }
 
-func gcd(a, b int) int {
+// greatest common divisor
+func gcd(values ...int) int {
+	if len(values) == 0 {
+		panic("no value in gcd function")
+	}
+	gcd := values[0]
+	for _, i := range values[1:] {
+		gcd = gcd_(gcd, i)
+	}
+	return gcd
+}
+
+func gcd_(a, b int) int {
 	if b == 0 {
 		return a
 	}
-	return gcd(b, a%b)
+	return gcd_(b, a%b)
 }
 
-func lcm(a, b int) int {
-	return a / gcd(a, b) * b
+func lcm(values ...int) int {
+	if len(values) == 0 {
+		panic("no value in lcm function")
+	}
+	lcm := values[0]
+	for _, i := range values[1:] {
+		lcm = lcm_(lcm, i)
+	}
+	return lcm
+}
+
+func lcm_(a, b int) int {
+	return a / gcd_(a, b) * b
 }
 
 func multiply(values ...int) int {
@@ -138,30 +160,45 @@ type nullableInt struct {
 	value int
 }
 
-func max(values ...int) int {
+func max[V Ordered](values ...V) V {
 	if len(values) == 0 {
-		panic("no value in max function")
+		log.Fatalf("no value in max function")
 	}
 
-	var max *nullableInt
-	for _, value := range values {
-		if max == nil || value > max.value {
-			max = &nullableInt{value}
+	max := values[0]
+	for _, value := range values[1:] {
+		if value > max {
+			max = value
 		}
 	}
-	return max.value
+	return max
 }
 
-func min(values ...int) int {
+func min[V Ordered](values ...V) V {
 	if len(values) == 0 {
-		panic("no value in min function")
+		log.Fatalf("no value in max function")
 	}
 
-	var min *nullableInt
-	for _, value := range values {
-		if min == nil || value < min.value {
-			min = &nullableInt{value}
+	min := values[0]
+	for _, value := range values[1:] {
+		if value < min {
+			min = value
 		}
 	}
-	return min.value
+	return min
 }
+
+// Types from constraints package
+type (
+	Signed interface {
+		~int | ~int8 | ~int16 | ~int32 | ~int64
+	}
+	Unsigned interface {
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+	}
+	Integer interface{ Signed | Unsigned }
+	Float   interface{ ~float32 | ~float64 }
+	Complex interface{ ~complex64 | ~complex128 }
+	Number  interface{ Integer | Float }
+	Ordered interface{ Integer | Float | ~string }
+)
