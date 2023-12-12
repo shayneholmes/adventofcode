@@ -156,38 +156,6 @@ func sum(values ...int) int {
 	return sum
 }
 
-type nullableInt struct {
-	value int
-}
-
-func max[V Ordered](values ...V) V {
-	if len(values) == 0 {
-		log.Fatalf("no value in max function")
-	}
-
-	max := values[0]
-	for _, value := range values[1:] {
-		if value > max {
-			max = value
-		}
-	}
-	return max
-}
-
-func min[V Ordered](values ...V) V {
-	if len(values) == 0 {
-		log.Fatalf("no value in max function")
-	}
-
-	min := values[0]
-	for _, value := range values[1:] {
-		if value < min {
-			min = value
-		}
-	}
-	return min
-}
-
 // Types from constraints package
 type (
 	Signed interface {
