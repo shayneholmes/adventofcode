@@ -23,10 +23,19 @@ type label = string
 type focallength = int
 type pos = int
 
-type box = struct {
-	focallengthByLabel map[label]focallength // no entry means it's been removed from the box
-	posByLabel         map[label]pos
-	labelsMaybe        []label // 0 is front
+type lens = struct {
+	label string
+	f     int
+}
+type box = []lens
+
+func findLabelInBox(label string, box box) int {
+	for i, l := range box {
+		if label == l.label {
+			return i
+		}
+	}
+	return -1
 }
 
 func main() {
@@ -43,10 +52,6 @@ func main() {
 		strs := strings.Split(line, ",")
 
 		boxes := make([]box, 256)
-		for i := range boxes {
-			boxes[i].focallengthByLabel = map[label]focallength{}
-			boxes[i].posByLabel = map[label]pos{}
-		}
 		vals := 0
 		for _, s := range strs {
 			if strings.Contains(s, "=") {
@@ -60,19 +65,17 @@ func main() {
 				box := hash(label)
 				focallength := atoi(v[1])
 
-				if _, ok := boxes[box].focallengthByLabel[label]; ok {
+				if i := findLabelInBox(label, boxes[box]); i > -1 {
 					// If there is already a lens in the box with the same label, replace the old
 					// lens with the new lens: remove the old lens and put the new lens in its
 					// place, not moving any other lenses in the box.
-					boxes[box].focallengthByLabel[label] = focallength
+					boxes[box][i] = lens{label, focallength}
 				} else {
 					// If there is not already a lens in the bx with the same label, add the lens
 					// to the box immediately behind any lenses already in the box. Don't move any
 					// of the other lenses when you do this. If there aren't any lenses in the box,
 					// the new lens goes all the way to the front of the box.
-					boxes[box].focallengthByLabel[label] = focallength
-					boxes[box].posByLabel[label] = len(boxes[box].labelsMaybe)
-					boxes[box].labelsMaybe = append(boxes[box].labelsMaybe, label)
+					boxes[box] = append(boxes[box], lens{label, focallength})
 				}
 			} else {
 				// If the operation character is a dash (-), go to the relevant box and remove the
@@ -83,8 +86,9 @@ func main() {
 
 				label := strings.TrimSuffix(s, "-")
 				box := hash(label)
-				delete(boxes[box].focallengthByLabel, label)
-				delete(boxes[box].posByLabel, label)
+				if i := findLabelInBox(label, boxes[box]); i > -1 {
+					boxes[box][i] = lens{}
+				}
 			}
 			vals += hash(s)
 		}
@@ -98,13 +102,11 @@ func main() {
 		sum := 0
 		for b, box := range boxes {
 			lensId := 1
-			for lpos, label := range box.labelsMaybe {
-				if length, ok := box.focallengthByLabel[label]; ok {
-					if pos, ok := box.posByLabel[label]; ok && pos == lpos {
-						// lens is in here
-						sum += (b + 1) * lensId * length
-						lensId += 1
-					}
+			for _, lens := range box {
+				if lens.label != "" {
+					// lens is in here
+					sum += (b + 1) * lensId * lens.f
+					lensId += 1
 				}
 			}
 		}
