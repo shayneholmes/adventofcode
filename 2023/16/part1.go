@@ -41,19 +41,8 @@ func main() {
 	stagesseen := map[stage]bool{}
 	visited := map[loc]bool{}
 	for len(tovisit) > 0 {
-		// for i := range grid {
-		// 	for j := range grid[0] {
-		// 		if visited[loc{i, j}] {
-		// 			fmt.Printf("#")
-		// 		} else {
-		// 			fmt.Printf("%c", grid[i][j])
-		// 		}
-		// 	}
-		// 	fmt.Printf("\n")
-		// }
-		// fmt.Printf("\n")
-		currentstage := tovisit[0]
-		tovisit = tovisit[1:]
+		currentstage := tovisit[len(tovisit)-1]
+		tovisit = tovisit[:len(tovisit)-1]
 		if stagesseen[currentstage] {
 			continue
 		}
@@ -66,11 +55,15 @@ func main() {
 		visited[spot] = true
 		stagesseen[currentstage] = true
 
+		godir := func(dir loc) {
+			tovisit = append(tovisit, stage{add(spot, dir), dir})
+		}
+
 		switch grid[spot.r][spot.c] {
 		case '.':
 			// If the beam encounters empty space (.), it continues in the same
 			// direction.
-			tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
+			godir(dir)
 			continue
 		case '/':
 			// If the beam encounters a mirror (/ or \), the beam is reflected 90
@@ -88,7 +81,7 @@ func main() {
 			case west:
 				dir = south
 			}
-			tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
+			godir(dir)
 			continue
 		case '\\':
 			switch dir {
@@ -101,7 +94,7 @@ func main() {
 			case west:
 				dir = north
 			}
-			tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
+			godir(dir)
 			continue
 
 		case '|':
@@ -110,12 +103,13 @@ func main() {
 			case north:
 				fallthrough
 			case south:
-				tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
+				godir(dir)
 			// If the beam encounters the flat side of a splitter (| or -), the beam is split into two beams going in each of the two directions the splitter's pointy ends are pointing. For instance, a rightward-moving beam that encounters a | splitter would split into two beams: one that continues upward from the splitter's column and one that continues downward from the splitter's column.
 			case east:
 				fallthrough
 			case west:
-				tovisit = append(tovisit, stage{loc{spot.r + north.r, spot.c + north.c}, north}, stage{loc{spot.r + south.r, spot.c + south.c}, south})
+				godir(north)
+				godir(south)
 			}
 			continue
 		case '-':
@@ -124,12 +118,13 @@ func main() {
 			case east:
 				fallthrough
 			case west:
-				tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
+				godir(dir)
 			// If the beam encounters the flat side of a splitter (| or -), the beam is split into two beams going in each of the two directions the splitter's pointy ends are pointing. For instance, a rightward-moving beam that encounters a | splitter would split into two beams: one that continues upward from the splitter's column and one that continues downward from the splitter's column.
 			case north:
 				fallthrough
 			case south:
-				tovisit = append(tovisit, stage{loc{spot.r + east.r, spot.c + east.c}, east}, stage{loc{spot.r + west.r, spot.c + west.c}, west})
+				godir(east)
+				godir(west)
 			}
 			continue
 		}
@@ -141,4 +136,8 @@ func main() {
 type loc = struct {
 	r int
 	c int
+}
+
+func add(i, j loc) loc {
+	return loc{i.r + j.r, i.c + j.c}
 }

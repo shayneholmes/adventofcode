@@ -15,7 +15,7 @@ var (
 )
 
 type stage = struct {
-	loc loc
+	loc
 	dir loc
 }
 
@@ -37,45 +37,33 @@ func main() {
 		log.Fatal(err)
 	}
 
-	seeds := func() []stage {
-		stages := []stage{}
-		rmax := len(grid) - 1
-		cmax := len(grid[0]) - 1
-		for i := range grid {
-			stages = append(stages, stage{loc{i, 0}, east}, stage{loc{i, cmax}, west})
-		}
-		for j := range grid[0] {
-			stages = append(stages, stage{loc{0, j}, south}, stage{loc{rmax, j}, north})
-		}
-		return stages
-	}
-
-	max := 0
-	for _, seed := range seeds() {
+	countenergizedstartingat := func(seed stage) int {
 		tovisit := []stage{seed}
 		stagesseen := map[stage]bool{}
 		visited := map[loc]bool{}
 		for len(tovisit) > 0 {
-			currentstage := tovisit[0]
-			tovisit = tovisit[1:]
-			if stagesseen[currentstage] {
+			spot := tovisit[len(tovisit)-1]
+			tovisit = tovisit[:len(tovisit)-1]
+			if stagesseen[spot] {
 				continue
 			}
-			spot := currentstage.loc
-			dir := currentstage.dir
+			godir := func(dir loc) {
+				tovisit = append(tovisit, stage{add(spot.loc, dir), dir})
+			}
+
+			dir := spot.dir
 			if spot.r < 0 || spot.r >= len(grid) || spot.c < 0 || spot.c >= len(grid[0]) {
 				// out of bounds
 				continue
 			}
-			visited[spot] = true
-			stagesseen[currentstage] = true
+			stagesseen[spot] = true
+			visited[spot.loc] = true
 
 			switch grid[spot.r][spot.c] {
 			case '.':
 				// If the beam encounters empty space (.), it continues in the same
 				// direction.
-				tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
-				continue
+				godir(dir)
 			case '/':
 				// If the beam encounters a mirror (/ or \), the beam is reflected 90
 				// degrees depending on the angle of the mirror. For instance, a
@@ -84,62 +72,98 @@ func main() {
 				// a \ mirror would continue downward from the mirror's column.
 				switch dir {
 				case north:
-					dir = east
+					godir(east)
 				case south:
-					dir = west
+					godir(west)
 				case east:
-					dir = north
+					godir(north)
 				case west:
-					dir = south
+					godir(south)
 				}
-				tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
-				continue
 			case '\\':
 				switch dir {
 				case north:
-					dir = west
+					godir(west)
 				case south:
-					dir = east
+					godir(east)
 				case east:
-					dir = south
+					godir(south)
 				case west:
-					dir = north
+					godir(north)
 				}
-				tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
-				continue
-
 			case '|':
 				switch dir {
-				// If the beam encounters the pointy end of a splitter (| or -), the beam passes through the splitter as if the splitter were empty space. For instance, a rightward-moving beam that encounters a - splitter would continue in the same direction.
+				// If the beam encounters the pointy end of a splitter (| or -), the
+				// beam passes through the splitter as if the splitter were empty
+				// space. For instance, a rightward-moving beam that encounters a -
+				// splitter would continue in the same direction.
 				case north:
 					fallthrough
 				case south:
-					tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
-					// If the beam encounters the flat side of a splitter (| or -), the beam is split into two beams going in each of the two directions the splitter's pointy ends are pointing. For instance, a rightward-moving beam that encounters a | splitter would split into two beams: one that continues upward from the splitter's column and one that continues downward from the splitter's column.
+					godir(dir)
+				// If the beam encounters the flat side of a splitter (| or -), the
+				// beam is split into two beams going in each of the two directions the
+				// splitter's pointy ends are pointing. For instance, a
+				// rightward-moving beam that encounters a | splitter would split into
+				// two beams: one that continues upward from the splitter's column and
+				// one that continues downward from the splitter's column.
 				case east:
 					fallthrough
 				case west:
-					tovisit = append(tovisit, stage{loc{spot.r + north.r, spot.c + north.c}, north}, stage{loc{spot.r + south.r, spot.c + south.c}, south})
+					godir(north)
+					godir(south)
 				}
-				continue
 			case '-':
 				switch dir {
-				// If the beam encounters the pointy end of a splitter (| or -), the beam passes through the splitter as if the splitter were empty space. For instance, a rightward-moving beam that encounters a - splitter would continue in the same direction.
+				// If the beam encounters the pointy end of a splitter (| or -), the
+				// beam passes through the splitter as if the splitter were empty
+				// space. For instance, a rightward-moving beam that encounters a -
+				// splitter would continue in the same direction.
 				case east:
 					fallthrough
 				case west:
-					tovisit = append(tovisit, stage{loc{spot.r + dir.r, spot.c + dir.c}, dir})
-					// If the beam encounters the flat side of a splitter (| or -), the beam is split into two beams going in each of the two directions the splitter's pointy ends are pointing. For instance, a rightward-moving beam that encounters a | splitter would split into two beams: one that continues upward from the splitter's column and one that continues downward from the splitter's column.
+					godir(dir)
+				// If the beam encounters the flat side of a splitter (| or -), the
+				// beam is split into two beams going in each of the two directions the
+				// splitter's pointy ends are pointing. For instance, a
+				// rightward-moving beam that encounters a | splitter would split into
+				// two beams: one that continues upward from the splitter's column and
+				// one that continues downward from the splitter's column.
 				case north:
 					fallthrough
 				case south:
-					tovisit = append(tovisit, stage{loc{spot.r + east.r, spot.c + east.c}, east}, stage{loc{spot.r + west.r, spot.c + west.c}, west})
+					godir(east)
+					godir(west)
 				}
-				continue
 			}
 		}
-		if len(visited) > max {
-			max = len(visited)
+		return len(visited)
+	}
+
+	seeds := func() []stage {
+		stages := []stage{}
+		rmax := len(grid) - 1
+		cmax := len(grid[0]) - 1
+		for i := range grid {
+			stages = append(stages,
+				stage{loc{i, 0}, east},
+				stage{loc{i, cmax}, west},
+			)
+		}
+		for j := range grid[0] {
+			stages = append(stages,
+				stage{loc{0, j}, south},
+				stage{loc{rmax, j}, north},
+			)
+		}
+		return stages
+	}
+
+	max := 0
+	for _, seed := range seeds() {
+		en := countenergizedstartingat(seed)
+		if en > max {
+			max = en
 		}
 	}
 	fmt.Println(max)
@@ -149,4 +173,8 @@ func main() {
 type loc = struct {
 	r int
 	c int
+}
+
+func add(i, j loc) loc {
+	return loc{i.r + j.r, i.c + j.c}
 }
