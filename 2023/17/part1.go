@@ -71,6 +71,7 @@ func main() {
 	heap.Init(&pq)
 
 	dists := map[params]int{}
+	items := map[params]*Item{}
 
 	for pq.Len() > 0 {
 		cur := heap.Pop(&pq).(*Item)
@@ -78,7 +79,7 @@ func main() {
 		cost := cur.priority
 		if _, ok := dists[val]; ok {
 			// already have this one
-			continue
+			log.Fatalf("die! %v", val)
 		} else {
 			// record this one
 			dists[val] = cost
@@ -97,10 +98,22 @@ func main() {
 					// out of bounds
 					continue
 				}
-				nucost += int(grid[nu.r][nu.c] - byte('0'))
 				loc := params{nu, polarityfromdir(nudir)}
-				// fmt.Printf("%v -> %v: %d\n", val, loc, nucost)
-				heap.Push(&pq, &Item{value: loc, priority: nucost})
+				if _, ok := dists[loc]; ok {
+					continue
+				}
+				nucost += int(grid[nu.r][nu.c] - byte('0'))
+				if item, ok := items[loc]; ok {
+					if nucost < item.priority {
+						fmt.Printf("%v -> %v: %d %d\n", val, loc, item.priority, nucost)
+						pq.update(item, nucost)
+					}
+				} else {
+					fmt.Printf("%v -> %v: %d\n", val, loc, nucost)
+					i := &Item{value: loc, priority: nucost}
+					items[loc] = i
+					heap.Push(&pq, i)
+				}
 			}
 		}
 	}
@@ -176,4 +189,10 @@ func (pq *PriorityQueue) Pop() any {
 	item.index = -1 // for safety
 	*pq = old[0 : n-1]
 	return item
+}
+
+// update modifies the priority of an Item in the queue.
+func (pq *PriorityQueue) update(item *Item, priority int) {
+	item.priority = priority
+	heap.Fix(pq, item.index)
 }
