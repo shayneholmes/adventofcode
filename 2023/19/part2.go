@@ -39,10 +39,6 @@ type (
 	}
 )
 
-var (
-	empty partrange
-)
-
 func getattr(p partrange, field rune) attrrange {
 	if attr, ok := p[field]; ok {
 		return attr
@@ -62,10 +58,10 @@ func setattr(p partrange, field rune, a attrrange) partrange {
 func splitrange(p partrange, field rune, newlo int) (partrange, partrange) {
 	attr := getattr(p, field)
 	if attr.lo >= newlo {
-		return empty, p
+		return nil, p
 	}
 	if attr.hi <= newlo {
-		return p, empty
+		return p, nil
 	}
 
 	attrlo := attr
@@ -149,7 +145,7 @@ func main() {
 			switch rule.op {
 			case rune(0): // no predicate, move the whole range
 				res += acceptedcombos(range_, rule.target)
-				range_ = empty
+				range_ = nil
 			case '<':
 				lo, hi := splitrange(range_, rule.field, rule.rand)
 				res += acceptedcombos(lo, rule.target)
