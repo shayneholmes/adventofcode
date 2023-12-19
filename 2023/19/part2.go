@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"regexp"
 	"strconv"
@@ -21,12 +22,7 @@ type (
 		hi int // exclusive
 	}
 
-	partrange = struct {
-		x attrrange
-		m attrrange
-		a attrrange
-		s attrrange
-	}
+	partrange = map[rune]attrrange
 
 	state = struct {
 		partrange partrange
@@ -44,40 +40,22 @@ type (
 )
 
 var (
-	empty_attr = attrrange{0, 0}
-	empty      = partrange{empty_attr, empty_attr, empty_attr, empty_attr}
+	empty partrange
 )
 
 func getattr(p partrange, field rune) attrrange {
-	switch field {
-	case 'x':
-		return p.x
-	case 'm':
-		return p.m
-	case 'a':
-		return p.a
-	case 's':
-		return p.s
-	default:
-		log.Fatalf("bad field %q", field)
-		return attrrange{}
+	if attr, ok := p[field]; ok {
+		return attr
 	}
+	log.Fatalf("bad field %q", field)
+	return attrrange{}
 }
 
+// returns a new partrange with the attribute set differently.
 func setattr(p partrange, field rune, a attrrange) partrange {
-	switch field {
-	case 'x':
-		p.x = a
-	case 'm':
-		p.m = a
-	case 'a':
-		p.a = a
-	case 's':
-		p.s = a
-	default:
-		log.Fatalf("bad field %q", field)
-	}
-	return p
+	nu := maps.Clone(p)
+	nu[field] = a
+	return nu
 }
 
 // Split a range at the indicated field, return lo and hi
@@ -150,17 +128,22 @@ func main() {
 
 	var acceptedcombos func(partrange, label) int
 	acceptedcombos = func(range_ partrange, label string) int {
-		res := 0
+		if range_ == nil {
+			return 0
+		}
 		if label == "A" {
-			rangesize := (range_.x.hi - range_.x.lo) * (range_.m.hi - range_.m.lo) *
-				(range_.a.hi - range_.a.lo) * (range_.s.hi - range_.s.lo)
+			rangesize := 1
+			for _, attr := range range_ {
+				rangesize *= attr.hi - attr.lo
+			}
 			return rangesize
 		}
 		if label == "R" {
 			return 0
 		}
+		res := 0
 		for _, rule := range workflows[label] {
-			if range_ == empty { // nothing to evaluate the rule against
+			if range_ == nil { // nothing to evaluate the rule against
 				break
 			}
 			switch rule.op {
@@ -183,13 +166,13 @@ func main() {
 	// Create a starting range of everything
 	attrLo := 1
 	attrHi := 4001 // exclusive
-	r := partrange{
-		x: attrrange{attrLo, attrHi},
-		m: attrrange{attrLo, attrHi},
-		a: attrrange{attrLo, attrHi},
-		s: attrrange{attrLo, attrHi},
+	fullrange := partrange{
+		'x': attrrange{attrLo, attrHi},
+		'm': attrrange{attrLo, attrHi},
+		'a': attrrange{attrLo, attrHi},
+		's': attrrange{attrLo, attrHi},
 	}
-	fmt.Printf("%d\n", acceptedcombos(r, "in"))
+	fmt.Printf("%d\n", acceptedcombos(fullrange, "in"))
 }
 
 // cheap atoi
