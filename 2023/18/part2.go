@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -70,68 +69,40 @@ func main() {
 		instructions = append(instructions, instruction{dir, int(mag)})
 	}
 
+	area := 0
 	perimeter := 0
 	pos := loc{0, 0}
-	locs := make([]loc, 0, 700)
-	locs = append(locs, pos)
-	rbounds := map[int]bool{0: true}
-	cbounds := map[int]bool{0: true}
 	for _, inst := range instructions {
-		pos = add(pos, mult(inst.dir, inst.mag))
-		rbounds[pos.r] = true
-		cbounds[pos.c] = true
 		perimeter += inst.mag
-		locs = append(locs, pos)
+		nu := add(pos, mult(inst.dir, inst.mag))
+		area += (nu.c - pos.c) * (nu.r + pos.r) / 2
+		pos = nu
 	}
+	area = abs(area)
 
-	rboundlist := []int{}
-	for r := range rbounds {
-		rboundlist = append(rboundlist, r)
-	}
-	slices.Sort(rboundlist)
-
-	cboundlist := []int{}
-	for c := range cbounds {
-		cboundlist = append(cboundlist, c)
-	}
-	slices.Sort(cboundlist)
-
-	inside := func(test loc) bool {
-		intersections := 0
-		last := locs[0]
-		for _, l := range locs[1:] {
-			horizontal := last.r == l.r
-			above := last.r <= test.r
-
-			left := min(l.c, last.c)
-			right := max(l.c, last.c)
-			leftandright := (left <= test.c) && (right > test.c)
-			intersects := horizontal && above && leftandright
-			if intersects {
-				intersections += 1
-			}
-			last = l
-		}
-		return intersections%2 == 1
-	}
-
-	area := 0
-	lastr := rboundlist[0]
-	for _, rb := range rboundlist[1:] {
-		lastc := cboundlist[0]
-		for _, cb := range cboundlist[1:] {
-			test := loc{lastr, lastc}
-			if inside(test) {
-				// compute area inside this thing, including left and top walls
-				area += (cb - lastc) * (rb - lastr)
-			}
-			lastc = cb
-		}
-		lastr = rb
-	}
 	fmt.Printf("area: %v\n", area+(perimeter)/2+1)
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
 }
+
+// absolute value
+func abs[V Number](i V) V {
+	return max(i, -i)
+}
+
+// Types from constraints package
+type (
+	Signed interface {
+		~int | ~int8 | ~int16 | ~int32 | ~int64
+	}
+	Unsigned interface {
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+	}
+	Integer interface{ Signed | Unsigned }
+	Float   interface{ ~float32 | ~float64 }
+	Complex interface{ ~complex64 | ~complex128 }
+	Number  interface{ Integer | Float }
+	Ordered interface{ Integer | Float | ~string }
+)
