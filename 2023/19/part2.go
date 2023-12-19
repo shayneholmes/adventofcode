@@ -148,6 +148,38 @@ func main() {
 		}
 	}
 
+	var acceptedcombos func(partrange, label) int
+	acceptedcombos = func(range_ partrange, label string) int {
+		res := 0
+		if label == "A" {
+			rangesize := (range_.x.hi - range_.x.lo) * (range_.m.hi - range_.m.lo) *
+				(range_.a.hi - range_.a.lo) * (range_.s.hi - range_.s.lo)
+			return rangesize
+		}
+		if label == "R" {
+			return 0
+		}
+		for _, rule := range workflows[label] {
+			if range_ == empty { // nothing to evaluate the rule against
+				break
+			}
+			switch rule.op {
+			case rune(0): // no predicate, move the whole range
+				res += acceptedcombos(range_, rule.target)
+				range_ = empty
+			case '<':
+				lo, hi := splitrange(range_, rule.field, rule.rand)
+				res += acceptedcombos(lo, rule.target)
+				range_ = hi
+			case '>':
+				lo, hi := splitrange(range_, rule.field, rule.rand+1)
+				res += acceptedcombos(hi, rule.target)
+				range_ = lo
+			}
+		}
+		return res
+	}
+
 	// Create a starting range of everything
 	attrLo := 1
 	attrHi := 4001 // exclusive
@@ -157,48 +189,7 @@ func main() {
 		a: attrrange{attrLo, attrHi},
 		s: attrrange{attrLo, attrHi},
 	}
-
-	acceptedcombos := 0
-	q := []state{{r, "in"}}
-	for len(q) > 0 {
-		cur := q[0]
-		q = q[1:]
-		range_ := cur.partrange
-		if cur.label == "A" {
-			combos := (range_.x.hi - range_.x.lo) * (range_.m.hi - range_.m.lo) *
-				(range_.a.hi - range_.a.lo) * (range_.s.hi - range_.s.lo)
-			acceptedcombos += combos
-		}
-		if cur.label == "R" {
-			continue
-		}
-		moveRangeToLabel := func(range_ partrange, l label) {
-			if range_ == empty {
-				return
-			}
-			q = append(q, state{range_, l})
-		}
-		for _, rule := range workflows[cur.label] {
-			if range_ == empty { // nothing to evaluate the rule against
-				break
-			}
-			switch rule.op {
-			case rune(0): // no predicate, move the whole range
-				moveRangeToLabel(range_, rule.target)
-				range_ = empty
-			case '<':
-				lo, hi := splitrange(range_, rule.field, rule.rand)
-				moveRangeToLabel(lo, rule.target)
-				range_ = hi
-			case '>':
-				lo, hi := splitrange(range_, rule.field, rule.rand+1)
-				moveRangeToLabel(hi, rule.target)
-				range_ = lo
-			}
-		}
-	}
-
-	fmt.Printf("%d\n", acceptedcombos)
+	fmt.Printf("%d\n", acceptedcombos(r, "in"))
 }
 
 // cheap atoi
