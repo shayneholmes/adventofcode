@@ -10,6 +10,38 @@ import (
 	"strconv"
 )
 
+type stone = struct {
+	pos, v    point
+	slope     float64
+	intercept float64
+}
+
+func futureintersection(s1, s2 stone) point {
+	// ignore time
+	// find a point at which [x,y] satisfies y = mx+b for both things
+	// m1x + b1 = m2x + b2
+	// (m1 - m2)x = b2 - b1
+	// x = (b2 - b1)/(m1 - m2)
+	x := (s2.intercept - s1.intercept) / (s1.slope - s2.slope)
+	// y = m1x + b1
+	y1 := (s1.slope)*x + s1.intercept
+	y2 := (s1.slope)*x + s1.intercept
+	if y1 != y2 {
+		log.Fatalf("%f != %f for %v, %v\n", y1, y2, s1, s2)
+	}
+	// figure out if they are in the past
+	// x = s1.x + t * s1.dx
+	// t = (x - s1.x) / s1.dx
+	// so t < 0 if the two terms are different signs
+	t1 := (x - s1.pos[0]) / (s1.v[0])
+	t2 := (x - s2.pos[0]) / (s2.v[0])
+	// fmt.Printf("%v, %v -> %v at time %f, %f\n", s1, s2, point{x, y1}, t1, t2)
+	if t1 < 0 || t2 < 0 {
+		return point{math.Inf(0), math.Inf(0)}
+	}
+	return point{x, y1}
+}
+
 func main() {
 	file, err := os.Open("./input.txt")
 	if err != nil {
@@ -17,16 +49,56 @@ func main() {
 	}
 	defer file.Close()
 
+	stones := []stone{}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Println(line)
+		is := floats(line)
+		s := stone{
+			pos: point{is[0], is[1], is[2]},
+			v:   point{is[3], is[4], is[5]},
+		}
+		// the path is traced by the function y = s1.x
+		// [s1.x, s1.y] and [s1.x + dx, s1.y + dy]
+		// compute the formula
+		// slope is (s1.y + dy - s1.y) / (s1.x + dx - s1.x) = dy / dx
+		// intercept moves left s1.x, so is s1.y - (dy / dx * s1.x)
+		// y = mx + b @ s1.x, s1.y
+		// s1.y = (dy/dx)*s1.x + b
+		// b = s1.y - (dy / dx * s1.x)
+		// for some position (x, y), s1.x +
+		s.slope = s.v[1] / s.v[0]
+		s.intercept = s.pos[1] - s.slope*s.pos[0]
+		stones = append(stones, s)
+		// fmt.Println(s)
 	}
+
+	intersections := 0
+	for i, s1 := range stones {
+		for _, s2 := range stones[i+1:] {
+			// fmt.Printf("%v, %v\n", s1, s2)
+			intersection := futureintersection(s1, s2)
+			if intersection[0] >= xmin && intersection[0] <= xmax &&
+				intersection[1] >= ymin && intersection[1] <= ymax {
+				intersections += 1
+			}
+		}
+	}
+	fmt.Println(intersections)
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
 }
+
+const (
+	// xmin = 7
+	// xmax = 27
+	xmin = 200000000000000
+	xmax = 400000000000000
+	ymin = xmin
+	ymax = xmax
+)
 
 // absolute value
 func abs[V Number](i V) V {
@@ -40,8 +112,6 @@ var (
 	south = loc{1, 0}
 )
 
-var dirs = []loc{north, south, east, west}
-
 // location in a grid
 type loc = struct {
 	r int
@@ -51,6 +121,8 @@ type loc = struct {
 func add(i, j loc) loc {
 	return loc{i.r + j.r, i.c + j.c}
 }
+
+var dirs = []loc{north, south, east, west}
 
 type point = []float64
 
@@ -186,3 +258,22 @@ type (
 	Number  interface{ Integer | Float }
 	Ordered interface{ Integer | Float | ~string }
 )
+
+// solve 9 equations
+// 275325627102914, 177556324137106, 279758114394131 @ 249, 405, -531
+// 284428334220238, 231958436807561, 189800593445547 @ 237, 140, -111
+// 208260774362545, 354915461185166, 308973039318009 @ 128, -159, -65
+//
+// xs+t1*dxs=275325627102914+t1*249
+// ys+t1*dys=177556324137106+t1*405
+// zs+t1*dzs=279758114394131+t1*(-531)
+// xs+t2*dxs=284428334220238+t2*237
+// ys+t2*dys=231958436807561+t2*140
+// zs+t2*dzs=189800593445547+t2*(-111)
+// xs+t3*dxs=208260774362545+t3*128
+// ys+t3*dys=354915461185166+t3*(-159)
+// zs+t3*dzs=308973039318009+t3*(-65)
+//
+// Not linear, so we have to do something else...
+// xs+t1*dxs=275325627102914+t1*249
+// xs+t1*dxs=275325627102914+t1*249
